@@ -3,9 +3,7 @@ Display useful information on an LED Signboard
 
 About This Project
 ==================
-This project was developed as a part of an effort to make an LED sign made from Jumbotron panels a usable information board
-The idea behind it is that the adafruit framebuffer display is used to display the contents of the linux framebuffer for the lower 64x64 pixels of the display.  The adafruit code then happy sends this off for rendering to the display.
-I have some photos of this in action which I will upload later.  On it's own this code probably isn't all that useful, except maybe to act as a tutorial/illustration of using python to interface with a CFFI library (SDL2)
+This project was developed as a part of an effort to make an LED sign made from Jumbotron panels a usable information board.  The idea behind it is that the adafruit framebuffer display is used to display the contents of the linux framebuffer for the lower 64x64 pixels of the display.  The adafruit code then happy sends this off for rendering to the display.  I have some photos of this in action which I will upload later.  On it's own this code probably isn't all that useful, except maybe to act as a tutorial/illustration of using python to interface with a CFFI library (SDL2)
 
 While using it as a tutorial / illustration of SDL programming in python, a few areas may be interesting to you:
 
