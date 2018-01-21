@@ -1,0 +1,3 @@
+[submodule "resources/icons/emojione-png-sprites"]
+	path = resources/icons/emojione-png-sprites
+	url = https://github.com/Deveo/emojione-png-sprites.git
