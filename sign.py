@@ -21,7 +21,6 @@ import math
 # location, in which we keep all data.
 RESOURCES = sdl2.ext.Resources(__file__, "resources")
 
-
 class FileNotFound(Exception):
     def __init__(self, message):
         print message
@@ -52,7 +51,64 @@ class Clock:
         self.draw()
 
 
-#class Emoji_Time:
+class Emoji:
+    """
+    Allows for the loading of Emojis as sprites of different sizes via spritesheets, allows templates via config file.
+    """
+    def __init__(self, size, x, y, emoji):
+        """
+        :param size: font size (in px) of the emoji
+        :param x: x position of the emoji on screen
+        :param y: y position of emoji on screen
+        :param emoji: int emoji number in the spritesheet
+        """
+        self.size = size
+        self.x = x
+        self.y = y
+        self.sprite = None
+
+        #sprite = Sprite(location, number, size, x, y)
+        sprite_template = config.get("SPRITES", "emoji_spritesheet")
+        sprite_template = sprite_template % self.size
+
+        if not os.path.exists(sprite_template):
+            raise FileNotFound("Emoji Spritefile not found: %s" % sprite_template)
+        self.spritesheet = sprite_template
+        self.sprite = Sprite(sprite_template, emoji, self.size, 0, 0)
+
+
+class EmojiTime:
+    """
+    A class which is loaded into the eventloop which can display emoji's at specific intervals.  Think Big Ben?
+    """
+    def __init__(self, spriteManager):
+        # How often will we display the emoji?  In seconds.
+        self.interval = config.getint("EMOJITIME", "interval")
+        self.emoji = config.getint("EMOJITIME", "emoji")
+        self.size = config.getint("EMOJITIME", "size")
+
+        self.current_emoji = Emoji(self.size, 0, 0, self.emoji).sprite
+
+        self.spriteManager = spriteManager
+
+
+    # override del to let the sprite manager know to reap our sprite
+    #def __del__(self):
+    #    self.spriteManager.remove_sprite(self.sprite)
+
+    def draw(self):
+        return
+
+    def tick(self):
+        # remove our current sprite from the manager - we're going to display something else.
+        self.spriteManager.remove_sprite(self.current_emoji)
+
+        # load the new sprite
+        self.current_emoji = Emoji(self.size, 0, 0, self.emoji).sprite
+        self.spriteManager.add_sprite(self.current_emoji)
+        self.draw()
+
+
 class Sprite:
     """
     Sprite class manages loading a sheet of square sprites
@@ -77,16 +133,21 @@ class Sprite:
         row_size = self.sheet.w / self.size
         num_rows = self.sheet.h / self.size
 
-        x_position = row_size % number
+        x_position = number % row_size #row_size % number
+
         y_position = math.ceil(number / row_size)
-        x_position = self.size * x_position
+        x_position = (self.size * x_position) % self.sheet.w
         y_position = self.size * y_position
+
+        #x_position -= 64
+        y_position -= 64
 
     #    return (x_position, y_position)
     #def draw_sprite(self, number):
     #    # get the x,y coordinates of the desired sprite's position in the spritesheet based off the size of sprites
     #    sprite_x, sprite_y = self.get_sprite_position(number)
         # make a rect which will be used to cut the sprite from the sheet
+        print "Getting Sprite at : %d,%d" % (x_position, y_position)
         self.sprite = sdl2.rect.SDL_Rect(int(x_position), int(y_position), self.size, self.size)
         #return sprite
 
@@ -106,6 +167,17 @@ class SpriteManager:
 
     def add_sprite(self, sprite):
         self.sprites.append(sprite)
+
+    def remove_sprite(self, sprite):
+        """
+        :param sprite: int | Sprite
+        """
+        if isinstance(sprite, Sprite):
+            for i in self.sprites:
+                if sprite == i:
+                    self.sprites.remove(sprite)
+        elif isinstance(sprite, int):
+            self.sprites.pop(sprite)
 
     def draw(self):
         for i in self.sprites:
@@ -171,6 +243,7 @@ class News:
         self.get_news()
 
     def get_news(self):
+        self.last_update = time.time()
         self.news = "" #""SAMPLE TEXT FOR THIS PROJECT>>>END"
         parameters = "?sources=%s&apiKey=%s" % (self.source, self.apikey)
         request_url = self.url+parameters
@@ -350,7 +423,18 @@ def draw_text(window, scene, text, x=0, y=0, font="slkscr", size=7, unicode=Fals
 
     color = sdl2.SDL_Color(r=255, g=255, b=255)
 
-    surface_out_og = sdl2.sdlttf.TTF_RenderText_Solid(font, text, color)
+    if type(text) == unicode or unicode == True:
+        print "Handling UNICODE"
+        surface_out_og = sdl2.sdlttf.TTF_RenderGlyph_Solid(font, ctypes.c_uint16(0x1f600), color)
+        #short = ctypes.POINTER(ctypes.c_ushort)
+        #derp = [ctypes.c_ushort(0x1f600), ctypes.c_ushort(0x00)]
+
+        #nums = [ctypes.c_uint16(0x1f600)]
+        #fuck = (ctypes.c_uint16 * len(nums))(*nums)
+        #surface_out_og = sdl2.sdlttf.TTF_RenderUNICODE_Solid(font, fuck, color)
+    else:
+        surface_out_og = sdl2.sdlttf.TTF_RenderText_Solid(font, text, color)
+    #surface_out_og = sdl2.sdlttf.TTF_RenderText_Solid(font, text, color)
 
     if not surface_out_og:
         print "There was a problem"
@@ -395,9 +479,11 @@ def run(config):
     sdl2.SDL_GetDesktopDisplayMode(0, mode)
 
     w = mode.w
-    h = mode.h-1
+    h = mode.h-(64+30)
 
-    window = sdl2.ext.Window("SignPi", position=(0,h), size=(64, 64))
+    print w,h
+
+    window = sdl2.ext.Window("SignPi", position=(-2,h), size=(64, 64))
     #window.DEFAULTPOS = (0,0)
     window.show()
 
@@ -418,15 +504,15 @@ def run(config):
     surface_list = []
 
     spriteManager = SpriteManager(config, window)
-    #sprite = Sprite(location, number, size, x, y)
-    sprite = Sprite(config.get("SPRITES", "spritesheet"), 1, 16, 0, 0)
-    spriteManager.add_sprite(sprite)
+
+    emojitime = EmojiTime(spriteManager)
 
     # a list to hold all the elements which manage the things on the screen
     tracked_objects = [
         Weather(config, window, 0, 0),
         News(config, window, 0, 56),
         Clock(config, window, 0, 24),
+        emojitime,
         spriteManager
     ]
 
