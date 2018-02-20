@@ -67,13 +67,14 @@ class Emoji:
         self.y = y
         self.sprite = None
 
-        #sprite = Sprite(location, number, size, x, y)
         sprite_template = config.get("SPRITES", "emoji_spritesheet")
         sprite_template = sprite_template % self.size
 
         if not os.path.exists(sprite_template):
             raise FileNotFound("Emoji Spritefile not found: %s" % sprite_template)
         self.spritesheet = sprite_template
+
+        #sprite = Sprite(location, number, size, x, y)
         self.sprite = Sprite(sprite_template, emoji, self.size, 0, 0)
 
 
@@ -88,25 +89,30 @@ class EmojiTime:
         self.size = config.getint("EMOJITIME", "size")
 
         self.current_emoji = Emoji(self.size, 0, 0, self.emoji).sprite
-
         self.spriteManager = spriteManager
 
-
-    # override del to let the sprite manager know to reap our sprite
-    #def __del__(self):
-    #    self.spriteManager.remove_sprite(self.sprite)
+        self.duration = config.getint("EMOJITIME", "duration")
+        self.active = 0
 
     def draw(self):
         return
 
     def tick(self):
-        # remove our current sprite from the manager - we're going to display something else.
-        self.spriteManager.remove_sprite(self.current_emoji)
 
-        # load the new sprite
-        self.current_emoji = Emoji(self.size, 0, 0, self.emoji).sprite
-        self.spriteManager.add_sprite(self.current_emoji)
-        self.draw()
+        if int(time.time()) % self.interval == 0:
+            self.active = int(time.time())
+            print "EMOJITIME!"
+            # remove our current sprite from the manager - we're going to display something else.
+            self.spriteManager.remove_sprite(self.current_emoji)
+
+            # load the new sprite
+            self.current_emoji = Emoji(self.size, 0, 0, self.emoji).sprite
+            self.spriteManager.add_sprite(self.current_emoji)
+            self.draw()
+
+        elif self.active > 0 and (time.time() - self.active) > self.duration:
+            self.spriteManager.remove_sprite(self.current_emoji)
+
 
 
 class Sprite:
@@ -128,28 +134,21 @@ class Sprite:
         self.location = spritesheet_location
         self.sheet = sdl2.sdlimage.IMG_Load(self.location).contents
 
-    # get the sprite related to the number
-    #def get_sprite_position(self, number):
         row_size = self.sheet.w / self.size
         num_rows = self.sheet.h / self.size
 
-        x_position = number % row_size #row_size % number
+        x_position = number % row_size
 
         y_position = math.ceil(number / row_size)
         x_position = (self.size * x_position) % self.sheet.w
         y_position = self.size * y_position
 
-        #x_position -= 64
-        y_position -= 64
+        x_position -= size
+        if x_position < 0:
+            x_position = 0
 
-    #    return (x_position, y_position)
-    #def draw_sprite(self, number):
-    #    # get the x,y coordinates of the desired sprite's position in the spritesheet based off the size of sprites
-    #    sprite_x, sprite_y = self.get_sprite_position(number)
-        # make a rect which will be used to cut the sprite from the sheet
         print "Getting Sprite at : %d,%d" % (x_position, y_position)
         self.sprite = sdl2.rect.SDL_Rect(int(x_position), int(y_position), self.size, self.size)
-        #return sprite
 
 
 class SpriteManager:
@@ -342,7 +341,7 @@ class Weather:
             if weather.status_code != 200:
                 raise Exception
         except:
-            print "Could not get weather"
+            print "Could not get weather code: %d" % weather.status_code
             raise Exception
         weather = weather.json()
         self.current_icon = self.__map_status(weather['weather'][0]['id'])
@@ -525,7 +524,6 @@ def run(config):
 
     lasttick = 0
 
-    # todo: I bet that the memory leak is occuring somewhere in the events stuff...
     while running:
         if sdl2.SDL_PollEvent(ctypes.byref(event)) != 0:
             if event.type == SDL_QUIT:
