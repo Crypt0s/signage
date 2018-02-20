@@ -45,5 +45,3 @@ def get_frames(filename):
         frames += 1
     print "done processing %d frames" % (frames)
     return gif_frames
-
-
