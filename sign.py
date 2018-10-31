@@ -14,6 +14,9 @@ import ConfigParser
 import time
 import requests
 import math
+import resources.giflib
+import multiprocessing
+import resources.webserver
 
 # Create a resource container, so that we can easily access all
 # resource, we bundle with our application. We are using the current
@@ -30,6 +33,51 @@ class BadFile(Exception):
     def __init__(self, filename):
         print "Bad File Format For File %s" % filename
 
+# Process and display each frame of a GIF onto the SDL Surface
+class Gif:
+    def __init__(self, config, window, x, y):
+        self.x = x
+        self.y = y
+        self.window = window
+        self.frames = None
+        self.frame_index = 0
+        self.get_frames()
+
+    def get_frames(self):
+        frames = resources.giflib.get_frames("resources/web/current.gif")
+        print "got :: " + str(len(frames))
+        self.frames = frames
+        self.frame_index = 0
+
+    def draw(self):
+        # get this draw()s frame
+        frame = self.frames[self.frame_index]
+
+        # boilerplate drawing stuff
+        window = self.window
+        window_pointer = ctypes.POINTER(sdl2.SDL_Window)
+        lp_window = ctypes.cast(id(window), window_pointer)
+        screen = window.get_surface()
+
+        # blit the frame onto the window surface
+        SDL_BlitSurface(frame, None, screen, None)
+        SDL_UpdateWindowSurface(lp_window)
+
+        # cleanup
+        SDL_FreeSurface(screen)
+        del window_pointer
+        del lp_window
+        del window
+
+    def tick(self):
+        self.draw()
+
+        # every time we loop the image, we re-load it real quick
+        # todo: don't do this - reload the image on signal of new image from webserver.
+        self.frame_index += 1
+        if self.frame_index >= len(self.frames):
+            self.get_frames()
+            #self.frame_index = 0
 
 # Tell the time.
 class Clock:
@@ -472,6 +520,10 @@ def run(config):
     if config is None:
         return 1
 
+    web_thread = multiprocessing.Process(target=resources.webserver.run, args=()) #config.getint('WEBSERVER','port')))
+    web_thread.start()
+
+
     sdl2.ext.init()
 
     mode = sdl2.SDL_DisplayMode()
@@ -508,11 +560,12 @@ def run(config):
 
     # a list to hold all the elements which manage the things on the screen
     tracked_objects = [
-        Weather(config, window, 0, 0),
-        News(config, window, 0, 56),
-        Clock(config, window, 0, 24),
-        emojitime,
-        spriteManager
+        #Weather(config, window, 0, 0),
+        #News(config, window, 0, 56),
+        #Clock(config, window, 0, 24),
+        #emojitime,
+        #spriteManager
+        Gif(config, window, 0, 0)
     ]
 
     running = 1
