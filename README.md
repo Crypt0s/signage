@@ -26,11 +26,7 @@ Usage
 Dependencies
 ============
 apt-get install libsdl2-ttf-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev
+pip install pysdl2 pillow pysdl2-cffi web.py requests
 
-pip install pysdl2
+Note: The version of pysdl-cffi from Pip as of 12/31/18 will not compile correctly on Bionic-based systems because of updates to PySDL.  I recommend that you utilize an updated version which has updated cdefs for the changes listed here https://hg.libsdl.org/SDL_mixer/diff/92882ef2ab81/SDL_mixer.h
 
-pip install pillow
-
-pip install pysdl2-cffi
-
-pip install web.py
