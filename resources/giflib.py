@@ -1,5 +1,4 @@
 #/usr/bin/python
-
 ######### EARLY TRY WITH CTYPES ON GIFLIB - WOULD BE FUN TO FINISH ################
 #import ctypes
 #from ctypes import CDLL
@@ -51,6 +50,8 @@ def resize(filename, out=None):
         filename = out
 
     output.save(filename, save_all=True, append_images=outframes)
+    del frames
+    gif.close()
 
 
 def get_frames(filename):
@@ -78,7 +79,6 @@ def get_frames(filename):
                 # load the image from the buffer and then add the resulting surface to the array
                 img = sdl2.sdlimage.IMG_Load_RW(image, 1).contents
                 gif_frames.append(img)
-                import pdb;pdb.set_trace()
                 #print len(gif_frames)
                 #SDL_FreeSurface(img)
 
@@ -87,6 +87,11 @@ def get_frames(filename):
             #SDL_FreeSurface(image)
             frames += 1
         print "done processing %d frames" % (frames)
+
+        newfile = open("/tmp/new","w+")
+        newfile.write("1")
+        newfile.close()
+
         return gif_frames
 
     except IOError:
