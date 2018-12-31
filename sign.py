@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # We'll use sys to properly exit with an error code.
+import os
 import sys
 import sdl2
 import sdl2.ext
@@ -44,6 +45,9 @@ class Gif:
         self.get_frames()
 
     def get_frames(self):
+        if self.frames is not None:
+            for i in self.frames:
+                SDL_FreeSurface(i)
         frames = resources.giflib.get_frames("resources/web/current.gif")
         print "got :: " + str(len(frames))
         self.frames = frames
