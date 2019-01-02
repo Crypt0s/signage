@@ -1,12 +1,14 @@
 #!/usr/bin/python
-
+import multiprocessing
+import ctypes
 import web
 import shutil
 import giflib
 
 urls = (
     '/', 'index',
-    '/upload', 'upload'
+    '/upload', 'upload',
+    '/message', 'message',
 )
 
 class index:
@@ -34,6 +36,48 @@ class upload:
         shutil.copyfile("/tmp/current.gif","resources/web/current.gif")
         return web.seeother("/")
 
-def run():
-    app = web.application(urls, globals())
-    app.run()
+class message:
+    # Send the message form
+    def GET(self):
+        return self.process_message(web.input(name=[]))
+        #return open("resources/static/message.html").read()
+
+    # process a sent message
+    def POST(self):
+        return self.process_message(web.input(name=[]))
+
+    def process_message(self, i):
+        message = i['message']
+        print dir(web.ctx.app_stack[0])
+        web.ctx.app_stack[0].set_value(message)
+        return "set message %s" % message
+
+# extends the web.py application class to provide some extra functionality needed to transfer data between the sign process and the webserver process
+class SignApplication(web.application, object):
+    def __init__(self, urls, globals, shared_value):
+        self.value = shared_value
+        # inherit all methods
+        super(SignApplication,self).__init__(urls, globals)
+
+    def set_value(self, value):
+        self.value.value = value
+        return True
+
+    def get_value(self):
+        #print "myval: " + str(self.value)
+        return self.value
+
+    def run(self):
+        print "GGGGGGGG"
+        super(SignApplication,self).run()
+        print "thing"
+
+
+# factory method - uses globals and the url paths defined in the start of the file to build application
+def get_webserver(shared_value):
+    app = SignApplication(urls, globals(), shared_value)
+    return app
+
+if __name__ == "__main__":
+    print "standalone mode"
+    get_webserver().run()
