@@ -83,6 +83,20 @@ class Gif:
             self.get_frames()
             #self.frame_index = 0
 
+# display a user-defined message in the surface.
+class Message:
+    def __init__(self, config, window, s_val, x, y):
+        self.x = x
+        self.y = y
+        self.window = window
+        self.s_val = s_val
+
+    def draw(self):
+        draw_text(self.window, None, text=self.s_val.value, x=self.x, y=self.y, size=7)
+
+    def tick(self):
+        self.draw()
+
 # Tell the time.
 class Clock:
     def __init__(self, config, window, x, y):
@@ -461,6 +475,7 @@ def draw_text(window, scene, text, x=0, y=0, font="slkscr", size=7, unicode=Fals
     :return: exit code
     """
 
+
     screen = window.get_surface()
     # screen = SDL_CreateRGBSurface(0, 64, 64, 32, 0, 0, 0, 0).contents
     #font_original = sdl2.sdlttf.TTF_OpenFont("resources/fonts/%s.ttf" % font, size)
@@ -474,33 +489,40 @@ def draw_text(window, scene, text, x=0, y=0, font="slkscr", size=7, unicode=Fals
 
     color = sdl2.SDL_Color(r=255, g=255, b=255)
 
-    if type(text) == unicode or unicode == True:
-        print "Handling UNICODE"
-        surface_out_og = sdl2.sdlttf.TTF_RenderGlyph_Solid(font, ctypes.c_uint16(0x1f600), color)
-        #short = ctypes.POINTER(ctypes.c_ushort)
-        #derp = [ctypes.c_ushort(0x1f600), ctypes.c_ushort(0x00)]
+    line_num = 0
+    for line in text.split('\n'):
+        if type(text) == unicode or unicode == True:
+            print "Handling UNICODE"
+            surface_out_og = sdl2.sdlttf.TTF_RenderGlyph_Solid(font, ctypes.c_uint16(0x1f600), color)
+            #short = ctypes.POINTER(ctypes.c_ushort)
+            #derp = [ctypes.c_ushort(0x1f600), ctypes.c_ushort(0x00)]
 
-        #nums = [ctypes.c_uint16(0x1f600)]
-        #fuck = (ctypes.c_uint16 * len(nums))(*nums)
-        #surface_out_og = sdl2.sdlttf.TTF_RenderUNICODE_Solid(font, fuck, color)
-    else:
-        surface_out_og = sdl2.sdlttf.TTF_RenderText_Solid(font, text, color)
-    #surface_out_og = sdl2.sdlttf.TTF_RenderText_Solid(font, text, color)
+            #nums = [ctypes.c_uint16(0x1f600)]
+            #fuck = (ctypes.c_uint16 * len(nums))(*nums)
+            #surface_out_og = sdl2.sdlttf.TTF_RenderUNICODE_Solid(font, fuck, color)
+        else:
+            surface_out_og = sdl2.sdlttf.TTF_RenderText_Solid(font, line, color)
+        #surface_out_og = sdl2.sdlttf.TTF_RenderText_Solid(font, text, color)
 
-    if not surface_out_og:
-        print "There was a problem"
-        del surface_out_og
-        return
-    surface_out = surface_out_og.contents
+        if not surface_out_og:
+            print "There was a problem"
+            del surface_out_og
+            return
+        surface_out = surface_out_og.contents
 
-    # create a rect at x, y with zero height and width to act as an arg for BlitSurface to use for a transform
-    position = sdl2.rect.SDL_Rect(x, y)
+        # create a rect at x, y with zero height and width to act as an arg for BlitSurface to use for a transform
+        line_y_offset = (line_num*size)
+        position = sdl2.rect.SDL_Rect(x, y+line_y_offset)
 
-    window_pointer = ctypes.POINTER(sdl2.SDL_Window)
-    lp_window = ctypes.cast(id(window), window_pointer)
+        window_pointer = ctypes.POINTER(sdl2.SDL_Window)
+        lp_window = ctypes.cast(id(window), window_pointer)
 
-    #SDL_FillRect(screen, None, SDL_MapRGB(screen.format, 0, 0, 0))
-    SDL_BlitSurface(surface_out, None, screen, position)
+        #SDL_FillRect(screen, None, SDL_MapRGB(screen.format, 0, 0, 0))
+        SDL_BlitSurface(surface_out, None, screen, position)
+
+        #increment the number of lines processed so we can increment the y position of new text segment
+        line_num += 1
+
     SDL_UpdateWindowSurface(lp_window)
     # scene.append(surface_out)
 
@@ -524,9 +546,19 @@ def run(config):
     if config is None:
         return 1
 
-    web_thread = multiprocessing.Process(target=resources.webserver.run, args=()) #config.getint('WEBSERVER','port')))
-    web_thread.start()
+    #web_thread = multiprocessing.Process(target=resources.webserver.run, args=()) #config.getint('WEBSERVER','port')))
+    #web_thread.start()
 
+    # we hold a reference to a shared memory object for our "user-defined message here"
+    s_val = multiprocessing.Array(ctypes.c_char, 8192)
+    s_val.value = "Initializing"
+
+    # use a factory method to get a reference to a runnable webserver
+    server = resources.webserver.get_webserver(s_val)
+
+    # start that reference in another process
+    web_thread = multiprocessing.Process(target=server.run, args=())
+    web_thread.start()
 
     sdl2.ext.init()
 
@@ -569,7 +601,8 @@ def run(config):
         #Clock(config, window, 0, 24),
         #emojitime,
         #spriteManager
-        Gif(config, window, 0, 0)
+        Gif(config, window, 0, 0),
+        Message(config, window, s_val, 0, 24)
     ]
 
     running = 1
