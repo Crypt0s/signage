@@ -43,6 +43,9 @@ class Gif:
         self.frames = None
         self.frame_index = 0
         self.get_frames()
+        self.config = config
+        self.framerate = 1.0 / config.getfloat("GIF", "fps")
+        self.lasttime = 0
 
     def get_frames(self):
         if self.frames is not None:
@@ -69,6 +72,7 @@ class Gif:
 
         # cleanup
         SDL_FreeSurface(screen)
+
         del window_pointer
         del lp_window
         del window
@@ -76,12 +80,15 @@ class Gif:
     def tick(self):
         self.draw()
 
-        # every time we loop the image, we re-load it real quick
-        # todo: don't do this - reload the image on signal of new image from webserver.
-        self.frame_index += 1
+        # we draw the frame every tick, but we dont draw a new frame every tick.
+        now = time.time()
+        if now > (self.lasttime + self.framerate):
+            self.lasttime = now
+            self.frame_index += 1
+
+        # get the next frame but if we've completed the gif, get a new one.
         if self.frame_index >= len(self.frames):
             self.get_frames()
-            #self.frame_index = 0
 
 # display a user-defined message in the surface.
 class Message:
@@ -630,13 +637,13 @@ def run(config):
 
             # ...blank the screen
             SDL_FillRect(screen, None, SDL_MapRGB(screen.format, 0, 0, 0))
-            print "<<UPDATE>>"
+            #print "<<UPDATE>>"
 
             # fire a signal to our objects that they could consider updating themselves -- they may not though.
             for i in tracked_objects:
                 i.tick()
 
-            print len(tracked_objects)
+            #print len(tracked_objects)
             #draw_text(window, surface_list, u'\U0001F600', x=0, y=41, size=12, unicode=True, font='emojione-apple')
 
             # update the surface of the window (using the pointer to the window generated earlier)
